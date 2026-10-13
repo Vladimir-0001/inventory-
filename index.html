@@ -377,6 +377,9 @@ drone:'<rect x="9" y="10" width="6" height="4.5" rx="1.2"/><path d="M9 11L6.5 8.
 cable:'<path d="M6 3v3.5M10 3v3.5M4.5 6.5h7V10a3.5 3.5 0 0 1-7 0zM8 13.5V15a5 5 0 0 0 10 0V8"/><rect x="16" y="3.5" width="4" height="4.5" rx="1"/>',
 case:'<rect x="2.5" y="7" width="19" height="13" rx="2"/><path d="M9 7V4.5h6V7M2.5 12.5h19M10.5 12.5v2h3v-2"/>',
 wrench:'<path d="M14.7 6.3a4 4 0 0 0-5.3 5.3L3.5 17.5l3 3 5.9-5.9a4 4 0 0 0 5.3-5.3l-2.6 2.6-2.4-.6-.6-2.4z"/>',
+cage:'<rect x="3.5" y="8" width="17" height="11" rx="1.5"/><path d="M3.5 12.5h17M9 8V5h6v3M8 19v2.5M16 19v2.5"/><circle cx="12" cy="15.5" r="1.6"/>',
+softbox:'<path d="M8.5 3h7l5 5v7l-5 5h-7l-5-5V8z"/><circle cx="12" cy="11.5" r="2.2"/><path d="M12 20v2"/>',
+chair:'<path d="M6 3h12v6.5H6zM4.5 9.5h15M7 9.5L5 21M17 9.5l2 11.5M6.2 15.5h11.6"/>',
 box:'<path d="M21 7.5l-9-4.5-9 4.5v9l9 4.5 9-4.5z"/><path d="M3 7.5l9 4.5 9-4.5M12 12v9"/>',
 grid:'<rect x="3.5" y="3.5" width="7" height="9" rx="2"/><rect x="13.5" y="3.5" width="7" height="5" rx="2"/><rect x="3.5" y="15.5" width="7" height="5" rx="2"/><rect x="13.5" y="11.5" width="7" height="9" rx="2"/>',
 scan:'<path d="M4 8V5.5A1.5 1.5 0 0 1 5.5 4H8M16 4h2.5A1.5 1.5 0 0 1 20 5.5V8M20 16v2.5a1.5 1.5 0 0 1-1.5 1.5H16M8 20H5.5A1.5 1.5 0 0 1 4 18.5V16"/><rect x="8" y="8" width="3.5" height="3.5" rx=".6"/><path d="M14 8h2v2M8 14v2h2M13.5 13.5h2.5v2.5"/>',
@@ -400,10 +403,10 @@ search2:'<circle cx="11" cy="11" r="6.5"/><path d="M20 20l-4.2-4.2M8.5 11h5"/>',
 calendar:'<rect x="3.5" y="5" width="17" height="15.5" rx="2"/><path d="M3.5 10h17M8 3v4M16 3v4"/>'
 };
 const ic=(n,c)=>'<svg class="i'+(c?' '+c:'')+'" viewBox="0 0 24 24" aria-hidden="true">'+(IC[n]||IC.box)+'</svg>';
-const GEAR_ICONS=['cinecam','camera','lens','filter','tripod','gimbal','fresnel','panel','tube','cstand','flag','shotgun','mic','wireless','headphones','recorder','battery','card','ssd','monitor','film','reel','slate','drone','cable','case','wrench','box'];
+const GEAR_ICONS=['cinecam','camera','cage','lens','filter','tripod','gimbal','fresnel','panel','tube','softbox','cstand','flag','shotgun','mic','wireless','headphones','recorder','battery','card','ssd','monitor','film','reel','slate','drone','cable','case','chair','wrench','box'];
 
 /* ---------- domain ---------- */
-const CATS={camera:{l:'Cameras',a:'CAM',i:'cinecam'},lens:{l:'Lenses',a:'LNS',i:'lens'},support:{l:'Support',a:'SUP',i:'tripod'},lighting:{l:'Lighting',a:'LGT',i:'fresnel'},grip:{l:'Grip',a:'GRP',i:'cstand'},audio:{l:'Audio',a:'AUD',i:'shotgun'},power:{l:'Power',a:'PWR',i:'battery'},media:{l:'Media',a:'MED',i:'card'},monitor:{l:'Monitoring',a:'MON',i:'monitor'},film:{l:'Film stock',a:'FLM',i:'film'},cables:{l:'Cables',a:'CBL',i:'cable'},cases:{l:'Cases',a:'CSE',i:'case'},drone:{l:'Aerial',a:'DRN',i:'drone'},misc:{l:'Misc',a:'MSC',i:'box'}};
+const CATS={camera:{l:'Cameras',a:'CAM',i:'cinecam'},camacc:{l:'Camera accessories',a:'CAC',i:'cage'},lens:{l:'Lenses',a:'LNS',i:'lens'},support:{l:'Support',a:'SUP',i:'tripod'},lighting:{l:'Lighting',a:'LGT',i:'fresnel'},lightacc:{l:'Lighting accessories',a:'LAC',i:'softbox'},grip:{l:'Grip',a:'GRP',i:'cstand'},audio:{l:'Audio',a:'AUD',i:'shotgun'},power:{l:'Power',a:'PWR',i:'battery'},media:{l:'Media',a:'MED',i:'card'},monitor:{l:'Monitoring',a:'MON',i:'monitor'},film:{l:'Film stock',a:'FLM',i:'film'},cables:{l:'Cables',a:'CBL',i:'cable'},cases:{l:'Cases',a:'CSE',i:'case'},drone:{l:'Aerial',a:'DRN',i:'drone'},props:{l:'Props',a:'PRP',i:'chair'},misc:{l:'Misc',a:'MSC',i:'box'}};
 const KIT_TYPES={camera:{l:'Camera rig',i:'cinecam'},lighting:{l:'Lighting package',i:'fresnel'},audio:{l:'Audio kit',i:'shotgun'},grip:{l:'Grip package',i:'cstand'},scene:{l:'Scene gear list',i:'slate'}};
 const STATUS={available:{l:'Available',c:'ok'},out:{l:'Checked out',c:'out'},overdue:{l:'Overdue',c:'bad'},maintenance:{l:'In service',c:'warn'},missing:{l:'Missing',c:'miss'},retired:{l:'Retired',c:'mute'}};
 const ROLE_L={owner:'Owner',admin:'Admin',crew:'Crew'};
