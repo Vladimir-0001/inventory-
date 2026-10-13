@@ -803,9 +803,12 @@ teamCode:{live:true,render(s){const me=S.auth;const people={};S.log.forEach(e=>{
   b+='<div class="sec"><h2>Team activity</h2></div><div class="group">'+Object.keys(people).sort((a,b)=>people[b]-people[a]).map(n=>'<div class="row" style="cursor:default"><span class="brand-mark" style="width:36px;height:36px;border-radius:50%;font-size:13px">'+esc(initials(n))+'</span><span class="row-main"><span class="row-t">'+esc(n)+(n===me.name?' <span class="row-s">(you)</span>':'')+'</span><span class="row-s">Last action '+ago(people[n])+'</span></span></div>').join('')+'</div>';
   b+='<div class="sec"><h2>Add someone</h2></div><div class="facts"><div class="fact" style="justify-content:flex-start"><span style="color:var(--accent);font-weight:700">1</span><span style="text-align:left">Send them this link: <b>'+esc(location.origin+location.pathname)+'</b> <button class="textbtn" data-act="copyLink">Copy</button></span></div><div class="fact" style="justify-content:flex-start"><span style="color:var(--accent);font-weight:700">2</span><span style="text-align:left">Tell them the <b>team code</b>. They type it once with their name.</span></div></div>';
   b+='<div class="facts mt"><div class="fact"><span>Crew code</span><span>Scan, check out and in, report damage, shoots</span></div><div class="fact"><span>Admin code</span><span>Also add, edit, delete gear and kits, and settings</span></div></div>';
-  if(me.role==='admin')b+='<div class="sec"><h2>Change codes</h2></div><p class="note" style="margin-top:0">Changing codes signs everyone out. Hand the new crew code to people who should stay.</p><div class="form"><div class="two"><div class="field"><label class="lb" for="ncTeam">New crew code</label><input class="inp mono" id="ncTeam" autocomplete="off" autocapitalize="characters"></div><div class="field"><label class="lb" for="ncAdmin">New admin code</label><input class="inp mono" id="ncAdmin" autocomplete="off" autocapitalize="characters"></div></div><button class="btn btn-s" data-act="setCodes">Change codes</button></div>';
+  if(me.role==='admin')b+='<div class="stackbtns"><button class="btn btn-s" data-act="openCodes">'+ic('qr')+'Change team codes</button></div>';
   b+='<div class="stackbtns"><button class="btn btn-d" data-act="signOut">Sign out</button></div>';
   return{title:'Team',body:b}}},
+codes:{form:true,render(s){
+  let b='<p class="note" style="margin:0 4px 14px;font-size:14.5px">Pick new codes, then hand the new crew code to everyone who should keep access. Anyone still using the old codes gets signed out.</p><div class="form"><div class="field"><label class="lb" for="ncTeam">New crew code</label><input class="inp mono" id="ncTeam" autocomplete="off" autocapitalize="characters" placeholder="At least 4 characters"></div><div class="field"><label class="lb" for="ncAdmin">New admin code</label><input class="inp mono" id="ncAdmin" autocomplete="off" autocapitalize="characters" placeholder="Different from the crew code"></div><div class="hint">Codes ignore upper and lower case.</div><button class="btn btn-p" id="ncBtn" data-act="setCodes">Change codes</button></div>';
+  return{title:'Team codes',body:b}}},
 team:{live:true,render(s){const ids=Object.keys(S.members).sort((a,b)=>{const r={owner:0,admin:1,crew:2};return (r[role(a)]-r[role(b)])||String(S.names[a]||'').localeCompare(String(S.names[b]||''))});
   if(S.uid&&!ids.includes(S.uid))ids.unshift(S.uid);
   let b='<div class="hero" style="padding-bottom:10px"><span class="gi gi-lg">'+ic('user')+'</span><h2>'+esc(brandShort())+' team</h2><div class="row-s">'+ids.length+(ids.length===1?' member':' members')+'</div></div>';
@@ -907,7 +910,15 @@ team(){openSheet({kind:S.mode==='team'?'teamCode':'team'})},
 join(){doJoin()},
 signOut(){signOut('')},
 copyLink(){const t=location.origin+location.pathname;try{navigator.clipboard.writeText(t).then(()=>toast('Link copied'),()=>toast(t))}catch(e){toast(t)}},
-async setCodes(){const a=val('ncTeam'),b=val('ncAdmin');if(a.length<4||b.length<4){toast('Codes need 4 or more characters');return}if(a.toLowerCase()===b.toLowerCase()){toast('Use two different codes');return}try{await rpc('mr_set_codes',{p_admin:S.auth.code,p_team_code:a,p_admin_code:b});S.auth.code=b;saveAuth();toast('Codes changed. Your new admin code is saved on this phone.');drawSheet(true)}catch(e){toast(e.message||'Could not change codes')}},
+openCodes(){openSheet({kind:'codes'})},
+async setCodes(){const a=val('ncTeam'),b=val('ncAdmin');
+  if(a.length<4){$('#ncTeam').classList.add('err');toast('The crew code needs at least 4 characters');return}
+  if(b.length<4){$('#ncAdmin').classList.add('err');toast('The admin code needs at least 4 characters');return}
+  if(a.toLowerCase()===b.toLowerCase()){$('#ncAdmin').classList.add('err');toast('Use two different codes');return}
+  const btn=$('#ncBtn');if(btn){btn.disabled=true;btn.textContent='Saving…'}
+  try{await rpc('mr_set_codes',{p_admin:S.auth.code,p_team_code:a,p_admin_code:b});S.auth.code=b;saveAuth();closeSheet(false);toast('Codes changed. Crew code: '+a.toUpperCase()+' · Admin code: '+b.toUpperCase())}
+  catch(e){if(btn){btn.disabled=false;btn.textContent='Change codes'}toast(e.code==='admin'?'Only an admin can change codes.':e.code==='unavailable'?'No connection. Try again.':/unique|duplicate/i.test(e.message||'')?'Pick codes nobody else uses.':(e.message||'Could not change codes'))}},
+
 setRole(d){if(!S.isOwner)return;const roles=Object.assign({},S.roles);roles[d.id]=d.v;S.roles=roles;render();drawSheet(true);enqueue('team/roles',()=>db.doc('team/roles').set({roles}));toast((S.names[d.id]||'Member')+' is now '+ROLE_L[d.v].toLowerCase())},
 newItem(){openSheet({kind:'itemForm'})},
 editItem(d){openSheet({kind:'itemForm',id:d.id})},
