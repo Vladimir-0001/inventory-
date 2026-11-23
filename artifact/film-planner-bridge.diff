@@ -1,0 +1,105 @@
+--- artifact v3 (before)
++++ artifact v4 (Film Planner bridge)
+@@ -1097,6 +1097,7 @@
+ <section id="sheet" role="dialog" aria-modal="true" hidden></section>
+ <div id="toast" role="status" hidden></div>
+ <input type="file" id="scanFile" class="vh" accept="image/*" capture="environment" tabindex="-1" aria-hidden="true">
++<input type="file" id="fpFile" class="vh" accept=".json,application/json" tabindex="-1" aria-hidden="true">
+ 
+ <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js"></script>
+ <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
+@@ -2081,7 +2082,9 @@
+ 
+   if(S.mode!=='cloud')b+='<p class="note">Open this page signed in to claude.ai to keep the inventory synced across phones and your team.</p>';
+ 
+-  b+='<div class="stackbtns"><button class="btn btn-s" data-act="exportCSV">'+ic('download')+'Export inventory as CSV</button>'+(A()&&samples?'<button class="btn btn-d" data-act="clearSamples">Remove sample gear ('+samples+')</button>':'')+'</div>';
++  b+='<div class="stackbtns"><button class="btn btn-s" data-act="exportCSV">'+ic('download')+'Export inventory as CSV</button><button class="btn btn-s" data-act="exportFP">'+ic('download')+'Export for Film Planner</button>'+(W()?'<button class="btn btn-s" data-act="importFP">'+ic('calendar')+'Import shoot from Film Planner</button>':'')+(A()&&samples?'<button class="btn btn-d" data-act="clearSamples">Remove sample gear ('+samples+')</button>':'')+'</div>';
++
++  b+='<p class="note">Film Planner: “Export for Film Planner” gives its Shoot → Gear a snapshot of every item and shoot. “Import shoot from Film Planner” reads the file it saves and creates or updates one prep shoot per shoot day. Nothing is deleted.</p>';
+ 
+   b+='<div class="sec"><h2>Home Screen</h2></div><p class="note" style="margin-top:0">On iPhone, open this page in Safari, tap Share, then Add to Home Screen. It opens full screen like an app.</p></div>';
+ 
+@@ -2234,6 +2237,48 @@
+ if(c==='rate_limited'){toast('A save is already open.');
+ return}toast('Saving is not available here.')}}
+ 
++/* ---------- Film Planner bridge (file exchange;
++ see docs/inventory-bridge.md in the film-planner repo) ---------- */
++function fpSnapshot(){return{format:'marcele-inventory-snapshot',version:1,exportedAt:Date.now(),company:cfg().company,
++  items:Object.values(S.items).map(i=>({id:i.id,code:i.code||'',name:i.name||'',category:i.category||'misc',status:STATUS[i.status]&&i.status!=='overdue'?i.status:'available',dueAt:i.status==='out'?(i.dueAt||null):null,location:i.location||'',holder:i.status==='out'?(i.holder||''):'',shootId:i.status==='out'?(i.shootId||null):null})),
++  shoots:Object.values(S.shoots).map(s=>({id:s.id,name:s.name||'',callAt:s.callAt||'',wrapAt:s.wrapAt||s.callAt||'',status:s.status==='out'||s.status==='wrapped'?s.status:'prep',externalId:s.externalId||null,itemCodes:manifest(s).map(id=>S.items[id].code).filter(Boolean)}))}}
++function fpPlan(b){if(!b||b.format!=='film-planner-shoots'||b.version!==1||!Array.isArray(b.shoots))throw new Error('This is not a Film Planner shoot file.');
++
++  const byCode={};
++Object.values(S.items).forEach(i=>{byCode[String(i.code||'').trim().toUpperCase()]=i.id});
++
++  const plan={create:[],update:[],skipped:[],unknown:[]};
++const now=Date.now();
++
++  b.shoots.forEach(s=>{if(!s||typeof s.externalId!=='string'||!/^\d{4}-\d{2}-\d{2}$/.test(String(s.callAt||''))){plan.skipped.push(String((s&&s.name)||'?'));
++return}
++    const ids=[];
++(Array.isArray(s.itemCodes)?s.itemCodes:[]).forEach(c=>{const id=byCode[String(c).trim().toUpperCase()];
++if(id){if(!ids.includes(id))ids.push(id)}else plan.unknown.push(String(c))});
++
++    const wrapAt=s.wrapAt&&s.wrapAt>=s.callAt?s.wrapAt:s.callAt;
++
++    const notes=[s.callTime?'Call '+s.callTime:'',s.notes||''].filter(Boolean).join(' · ');
++
++    const body={name:String(s.name||'Film Planner shoot').slice(0,120),callAt:s.callAt,wrapAt,location:String(s.location||'').slice(0,200),notes:notes.slice(0,500)};
++
++    const cur=Object.values(S.shoots).find(x=>x.externalId===s.externalId);
++
++    if(cur){if(cur.status==='wrapped'){plan.skipped.push(body.name+' (wrapped)');
++return}
++      const prev=cur.fpItemIds||[];
++const extra=(cur.extraIds||[]).filter(id=>!prev.includes(id));
++ids.forEach(id=>{if(!extra.includes(id))extra.push(id)});
++
++      plan.update.push({id:cur.id,n:ids.length,body:Object.assign(body,{extraIds:extra,fpItemIds:ids,fpImportedAt:now})})}
++    else plan.create.push({n:ids.length,body:Object.assign(body,{kitIds:[],extraIds:ids.slice(),fpItemIds:ids.slice(),externalId:s.externalId,source:'film-planner',status:'prep',packed:{},returned:{},createdAt:now,fpImportedAt:now})})});
++
++  return plan}
++function fpApply(plan){plan.create.forEach(c=>put('shoots',uid('s'),c.body));
++plan.update.forEach(u=>patch('shoots',u.id,u.body));
++UI.shootTab='active';
++toast('Film Planner: '+plan.create.length+' created, '+plan.update.length+' updated')}
++
+ /* ---------- scanning ---------- */
+ async function decodeQR(file){if(typeof window.jsQR!=='function')throw new Error('nolib');
+ const url=URL.createObjectURL(file);
+@@ -2618,6 +2663,11 @@
+ exportCSV(){const cols=['code','name','category','status','location','holder','due_back','serial','specs','value','notes'];
+ const rows=Object.values(S.items).sort((a,b)=>String(a.code).localeCompare(String(b.code))).map(i=>[i.code,i.name,(CATS[i.category]||CATS.misc).l,STATUS[st(i)].l,i.location,i.status==='out'?i.holder:'',i.status==='out'&&i.dueAt?fDT(i.dueAt):'',i.serial,i.specs,i.value,i.notes].map(csvCell).join(','));
+ offerFile('marcele-inventory-'+ymd(Date.now())+'.csv',[cols.join(',')].concat(rows).join('\n'))},
++exportFP(){if(!S.loaded){toast('Still loading. Try again in a moment.');
++return}offerFile('marcele-inventory-'+ymd(Date.now())+'.json',JSON.stringify(fpSnapshot(),null,1))},
++importFP(){if(!W()){toast('You have view-only access. Ask the owner for Contributor access.');
++return}if(!S.loaded){toast('Still loading. Try again in a moment.');
++return}$('#fpFile').click()},
+ clearSamples(){confirmSheet('Remove sample gear','Delete every item, kit, shoot and history entry marked as a sample? Your own gear is not touched.','Remove samples',true,()=>{Object.values(S.items).filter(i=>i.sample).forEach(i=>del('items',i.id));
+ Object.values(S.kits).filter(k=>k.sample).forEach(k=>del('kits',k.id));
+ Object.values(S.shoots).filter(x=>x.sample).forEach(x=>del('shoots',x.id));
+@@ -2686,6 +2736,22 @@
+ document.addEventListener('keydown',e=>{if((e.key==='Enter'||e.key===' ')&&e.target.classList&&e.target.classList.contains('scanpad')){e.preventDefault();
+ $('#scanFile').click()}});
+ 
++$('#fpFile').addEventListener('change',async e=>{const f=e.target.files&&e.target.files[0];
++e.target.value='';
++if(!f)return;
++let plan;
++
++  try{plan=fpPlan(JSON.parse(await f.text()))}catch(err){toast(err&&/Film Planner/.test(String(err.message))?err.message:'Could not read that file.');
++return}
++  const n=plan.create.length+plan.update.length;
++if(!n){toast('Nothing to import'+(plan.skipped.length?' ('+plan.skipped.length+' skipped)':''));
++return}
++  const items=plan.create.concat(plan.update).reduce((a,x)=>a+x.n,0);
++
++  confirmSheet('Import from Film Planner','Create <b>'+plan.create.length+'</b> and update <b>'+plan.update.length+'</b> prep shoot'+(n===1?'':'s')+' holding '+items+' item'+(items===1?'':'s')+'. Nothing is deleted;
++ only gear Film Planner added before is replaced.'+(plan.unknown.length?'<br><br>Not in this inventory: <code>'+esc([...new Set(plan.unknown)].join(', '))+'</code>':'')+(plan.skipped.length?'<br><br>Skipped: '+esc(plan.skipped.join(', ')):''),'Import',false,()=>{fpApply(plan);
++closeSheet(true)})});
++
+ /* swipe down to close a sheet */
+ (function(){let y0=null,dy=0;
+ const sh=$('#sheet');
